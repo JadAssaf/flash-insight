@@ -4,7 +4,7 @@ import time
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                             QPushButton, QLabel, QLineEdit, QTextEdit, QMessageBox,
                             QGroupBox, QGridLayout, QSpinBox, QComboBox, QHBoxLayout,
-                            QDesktopWidget, QCheckBox)
+                            QDesktopWidget, QCheckBox, QSizePolicy)
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer, QRect
 from PyQt5.QtGui import QPainter, QPen, QColor, QPixmap, QImage, QScreen
 import threading
@@ -254,11 +254,10 @@ class MainWindow(QMainWindow):
         
         # Position window on the right side of primary screen
         screen = QApplication.primaryScreen().geometry()
-        self.move(screen.width() - 600, 100)
+        self.move(screen.width() - 380, 100)
         
-        # Set minimum size but allow resizing
-        self.setMinimumSize(500, 700)
-        self.resize(600, 800)
+        # Set fixed size - window cannot be resized
+        self.setFixedSize(380, 460)
         
         self.init_ui()
         self.start_preview_timer()
@@ -445,7 +444,7 @@ class MainWindow(QMainWindow):
         preview_container_layout.setSpacing(0)
         
         self.preview_label = QLabel()
-        self.preview_label.setMinimumSize(300, 160)
+        self.preview_label.setFixedSize(356, 160)  # Fixed size for preview
         self.preview_label.setStyleSheet("""
             QLabel {
                 background-color: #1c1c1e;
@@ -455,7 +454,7 @@ class MainWindow(QMainWindow):
             }
         """)
         self.preview_label.setAlignment(Qt.AlignCenter)
-        preview_container_layout.addWidget(self.preview_label)
+        preview_container_layout.addWidget(self.preview_label, 0, Qt.AlignCenter)
         layout.addWidget(self.preview_container)
         
         # Process button with enhanced styling
@@ -499,12 +498,36 @@ class MainWindow(QMainWindow):
                 color: #ffffff;
                 selection-background-color: #0a84ff;
                 selection-color: white;
+                max-height: 80px;
             }
             QTextEdit:focus {
                 border-color: #0a84ff;
             }
+            QScrollBar:vertical {
+                border: none;
+                background: #1c1c1e;
+                width: 8px;
+                margin: 0;
+            }
+            QScrollBar::handle:vertical {
+                background: #404040;
+                min-height: 20px;
+                border-radius: 4px;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                border: none;
+                background: none;
+            }
+            QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {
+                border: none;
+                background: none;
+            }
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+                background: none;
+            }
         """)
-        self.result_text.setMinimumHeight(40)
+        self.result_text.setFixedHeight(80)
+        self.result_text.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         layout.addWidget(self.result_text)
         
         # Status label with enhanced styling
@@ -527,10 +550,6 @@ class MainWindow(QMainWindow):
                 color: #ffffff;
             }
         """)
-        
-        # Set window properties for an even more compact look
-        self.setMinimumSize(360, 280)
-        self.resize(380, 300)
 
     def start_preview_timer(self):
         self.preview_timer = QTimer()
@@ -649,6 +668,7 @@ class MainWindow(QMainWindow):
         
     def updateWindowSize(self):
         """Update window size based on visible components."""
+        # Fixed height calculations
         base_height = 280  # Base height with just title, process button, and results
         
         if self.coords_toggle_btn.isChecked():
@@ -657,8 +677,7 @@ class MainWindow(QMainWindow):
         if self.preview_toggle_btn.isChecked():
             base_height += 180  # Height of preview section
             
-        self.setMinimumSize(360, base_height)
-        self.resize(380, base_height + 20)
+        self.setFixedSize(380, base_height)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
