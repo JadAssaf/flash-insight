@@ -3,7 +3,8 @@ import sys
 import time
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                             QPushButton, QLabel, QLineEdit, QTextEdit, QMessageBox,
-                            QGroupBox, QGridLayout, QSpinBox)
+                            QGroupBox, QGridLayout, QSpinBox, QComboBox, QHBoxLayout,
+                            QDesktopWidget, QCheckBox)
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer, QRect
 from PyQt5.QtGui import QPainter, QPen, QColor, QPixmap, QImage, QScreen
 import threading
@@ -51,6 +52,7 @@ class ProcessingThread(QThread):
     def __init__(self, capture_area):
         super().__init__()
         self.capture_area = capture_area
+        self.monitor_index = 1  # Default to primary monitor
 
     def image_to_bytes(self, img):
         """Convert PIL Image to bytes."""
@@ -62,11 +64,14 @@ class ProcessingThread(QThread):
     def run(self):
         try:
             with mss.mss() as sct:
-                # Capture the specified area
-                monitor = {"top": self.capture_area.top(), 
-                         "left": self.capture_area.left(),
-                         "width": self.capture_area.width(),
-                         "height": self.capture_area.height()}
+                # Capture the specified area with monitor index
+                monitor = {
+                    "top": self.capture_area.top(), 
+                    "left": self.capture_area.left(),
+                    "width": self.capture_area.width(),
+                    "height": self.capture_area.height(),
+                    "monitor": self.monitor_index
+                }
                 
                 # Verify capture area is valid
                 if monitor["width"] <= 0 or monitor["height"] <= 0:
@@ -107,36 +112,86 @@ class ProcessingThread(QThread):
             self.error.emit(str(e))
 
 class SelectionOverlay(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, screen_geometry=None):
         super().__init__(parent)
-        # Set window flags to stay on top and be frameless
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
         self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setCursor(Qt.CrossCursor)  # Change cursor to crosshair
-        self.showFullScreen()
+        self.setCursor(Qt.CrossCursor)
+        
+        # Store screen geometry for coordinate translation
+        self.screen_geometry = screen_geometry or QApplication.primaryScreen().geometry()
+        self.setGeometry(self.screen_geometry)
         
         self.start_pos = None
         self.end_pos = None
         self.is_selecting = False
         self.parent = parent
+        
+        # Add centered help text overlay
+        self.help_label = QLabel("Click and drag to select an area\nPress ESC to cancel", self)
+        self.help_label.setStyleSheet("""
+            QLabel {
+                color: rgba(255, 255, 255, 180);
+                background-color: rgba(0, 0, 0, 80);
+                padding: 15px 25px;
+                border-radius: 8px;
+                font-size: 15px;
+                font-weight: 500;
+            }
+        """)
+        self.help_label.adjustSize()
+        
+        # Center the help text
+        self.center_help_label()
+        self.help_label.show()
+
+    def center_help_label(self):
+        """Center the help label in the widget."""
+        geometry = self.geometry()
+        x = (geometry.width() - self.help_label.width()) // 2
+        y = (geometry.height() - self.help_label.height()) // 2
+        self.help_label.move(x, y)
+
+    def resizeEvent(self, event):
+        """Handle resize events to keep help text centered."""
+        super().resizeEvent(event)
+        self.center_help_label()
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Escape:
+            self.close()
+            if self.parent:
+                self.parent.show()
+                self.parent.activateWindow()
 
     def paintEvent(self, event):
         painter = QPainter(self)
         # Fill entire screen with very transparent overlay
-        painter.fillRect(self.rect(), QColor(0, 0, 0, 60))  # Reduced opacity to 60/255
+        painter.fillRect(self.rect(), QColor(0, 0, 0, 30))  # More transparent background
         
         if self.start_pos and self.end_pos:
-            # Clear the selected rectangle
+            # Get selection rectangle
             x = min(self.start_pos.x(), self.end_pos.x())
             y = min(self.start_pos.y(), self.end_pos.y())
             width = abs(self.start_pos.x() - self.end_pos.x())
             height = abs(self.start_pos.y() - self.end_pos.y())
-            painter.eraseRect(x, y, width, height)
+            
+            # Draw semi-transparent white for the selection
+            selection_color = QColor(255, 255, 255, 1)  # Almost fully transparent
+            painter.fillRect(x, y, width, height, selection_color)
             
             # Draw blue border around selection
-            pen = QPen(QColor(0, 120, 255), 2)  # Changed to blue
+            pen = QPen(QColor(0, 120, 255, 200), 2)  # Semi-transparent blue
             painter.setPen(pen)
             painter.drawRect(x, y, width, height)
+            
+            # Draw selection dimensions
+            text = f"{width} × {height}"
+            painter.setPen(QColor(255, 255, 255))
+            painter.drawText(x + 5, y - 5, text)
+            
+            # Hide help text when selecting
+            self.help_label.hide()
 
     def mousePressEvent(self, event):
         self.start_pos = event.pos()
@@ -158,12 +213,20 @@ class SelectionOverlay(QWidget):
             self.parent.selection_complete()  # New method to handle completion
         self.close()
 
+    def get_global_pos(self, local_pos):
+        """Convert local coordinates to global screen coordinates."""
+        return local_pos + self.screen_geometry.topLeft()
+
     def get_selection(self):
         if self.start_pos and self.end_pos:
-            x = min(self.start_pos.x(), self.end_pos.x())
-            y = min(self.start_pos.y(), self.end_pos.y())
-            width = abs(self.start_pos.x() - self.end_pos.x())
-            height = abs(self.start_pos.y() - self.end_pos.y())
+            # Convert to global coordinates
+            global_start = self.get_global_pos(self.start_pos)
+            global_end = self.get_global_pos(self.end_pos)
+            
+            x = min(global_start.x(), global_end.x())
+            y = min(global_start.y(), global_end.y())
+            width = abs(global_start.x() - global_end.x())
+            height = abs(global_start.y() - global_end.y())
             return QRect(x, y, width, height)
         return None
 
@@ -177,7 +240,18 @@ class MainWindow(QMainWindow):
         self.capture_area = QRect(0, 110, 340, 670)
         self.processing_thread = None
         
-        # Position window on the right side of screen
+        # Get the total virtual desktop size across all monitors
+        total_rect = QRect()
+        for screen in QApplication.screens():
+            total_rect = total_rect.united(screen.geometry())
+        
+        # Update spin box ranges to accommodate all monitors
+        self.max_width = total_rect.width()
+        self.max_height = total_rect.height()
+        self.max_x = total_rect.right()
+        self.max_y = total_rect.bottom()
+        
+        # Position window on the right side of primary screen
         screen = QApplication.primaryScreen().geometry()
         self.move(screen.width() - 600, 100)
         
@@ -192,119 +266,196 @@ class MainWindow(QMainWindow):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         layout = QVBoxLayout(central_widget)
-        layout.setSpacing(15)
-        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(10)
+        layout.setContentsMargins(12, 12, 12, 12)
         
-        # Title
-        title = QLabel("📸 Flash Insight")
-        title.setStyleSheet("font-size: 24px; font-weight: bold; margin: 10px;")
-        layout.addWidget(title)
-        
-        # Instructions
-        instructions = QLabel("Adjust the capture area below to match your content.\nThe preview will update automatically.")
-        instructions.setStyleSheet("font-size: 14px; margin: 10px;")
-        layout.addWidget(instructions)
-        
-        # Capture Area Controls
-        capture_group = QGroupBox("Capture Area")
-        capture_layout = QGridLayout()
-        
-        # Left position
-        left_label = QLabel("Left:")
+        # Initialize spin boxes first
         self.left_spin = QSpinBox()
-        self.left_spin.setRange(0, 3000)
-        self.left_spin.setValue(self.capture_area.left())
-        self.left_spin.valueChanged.connect(self.update_capture_area)
-        
-        # Top position
-        top_label = QLabel("Top:")
         self.top_spin = QSpinBox()
-        self.top_spin.setRange(0, 3000)
-        self.top_spin.setValue(self.capture_area.top())
-        self.top_spin.valueChanged.connect(self.update_capture_area)
-        
-        # Width
-        width_label = QLabel("Width:")
         self.width_spin = QSpinBox()
-        self.width_spin.setRange(50, 1000)
-        self.width_spin.setValue(self.capture_area.width())
-        self.width_spin.valueChanged.connect(self.update_capture_area)
-        
-        # Height
-        height_label = QLabel("Height:")
         self.height_spin = QSpinBox()
-        self.height_spin.setRange(50, 1000)
-        self.height_spin.setValue(self.capture_area.height())
-        self.height_spin.valueChanged.connect(self.update_capture_area)
         
-        # Add to grid layout
-        capture_layout.addWidget(left_label, 0, 0)
-        capture_layout.addWidget(self.left_spin, 0, 1)
-        capture_layout.addWidget(top_label, 0, 2)
-        capture_layout.addWidget(self.top_spin, 0, 3)
-        capture_layout.addWidget(width_label, 1, 0)
-        capture_layout.addWidget(self.width_spin, 1, 1)
-        capture_layout.addWidget(height_label, 1, 2)
-        capture_layout.addWidget(self.height_spin, 1, 3)
+        # Header section with title and select area button
+        header_widget = QWidget()
+        header_layout = QHBoxLayout(header_widget)
+        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setSpacing(8)
         
-        capture_group.setLayout(capture_layout)
-        layout.addWidget(capture_group)
+        title = QLabel("Flash Insight")
+        title.setStyleSheet("""
+            QLabel {
+                font-size: 18px;
+                font-weight: 500;
+                color: #1d1d1f;
+            }
+        """)
         
-        # Preview Area
-        preview_group = QGroupBox("Preview")
-        preview_layout = QVBoxLayout()
-        self.preview_label = QLabel()
-        self.preview_label.setMinimumSize(300, 200)
-        self.preview_label.setAlignment(Qt.AlignCenter)
-        preview_layout.addWidget(self.preview_label)
-        preview_group.setLayout(preview_layout)
-        layout.addWidget(preview_group)
-        
-        # Capture Button
-        self.capture_btn = QPushButton("📸 Process")
-        self.capture_btn.setStyleSheet("""
+        select_area_btn = QPushButton("⌘ Select Area")
+        select_area_btn.setStyleSheet("""
             QPushButton {
-                background-color: #4CAF50;
+                background-color: #0071e3;
                 color: white;
+                padding: 4px 12px;
+                border-radius: 6px;
+                font-size: 13px;
+                font-weight: 500;
                 border: none;
-                padding: 10px;
-                border-radius: 5px;
-                font-size: 16px;
+                height: 24px;
             }
             QPushButton:hover {
-                background-color: #45a049;
+                background-color: #0077ed;
+            }
+            QPushButton:pressed {
+                background-color: #006edb;
+            }
+        """)
+        select_area_btn.clicked.connect(self.start_area_selection)
+        
+        header_layout.addWidget(title)
+        header_layout.addStretch()
+        header_layout.addWidget(select_area_btn)
+        layout.addWidget(header_widget)
+        
+        # Coordinates section with compact layout
+        coords_widget = QWidget()
+        coords_widget.setStyleSheet("""
+            QWidget {
+                background-color: #f5f5f7;
+                border-radius: 8px;
+                padding: 4px;
+            }
+        """)
+        coords_layout = QHBoxLayout(coords_widget)
+        coords_layout.setSpacing(4)
+        coords_layout.setContentsMargins(8, 4, 8, 4)
+        
+        # Create coordinate pairs with labels
+        coord_pairs = [
+            ("X", self.left_spin, -self.max_x, self.max_x),
+            ("Y", self.top_spin, -self.max_y, self.max_y),
+            ("W", self.width_spin, 50, self.max_width),
+            ("H", self.height_spin, 50, self.max_height)
+        ]
+        
+        for label_text, spin_box, min_val, max_val in coord_pairs:
+            container = QWidget()
+            container_layout = QHBoxLayout(container)
+            container_layout.setContentsMargins(0, 0, 0, 0)
+            container_layout.setSpacing(2)
+            
+            label = QLabel(label_text)
+            label.setStyleSheet("color: #86868b; font-size: 12px; min-width: 12px;")
+            
+            spin_box.setRange(min_val, max_val)
+            spin_box.setValue(getattr(self.capture_area, 
+                                   {"X": "left", "Y": "top", 
+                                    "W": "width", "H": "height"}[label_text])())
+            spin_box.valueChanged.connect(self.update_capture_area)
+            spin_box.setStyleSheet("""
+                QSpinBox {
+                    background-color: transparent;
+                    border: none;
+                    padding: 0px 2px;
+                    min-width: 50px;
+                    max-width: 60px;
+                    color: #1d1d1f;
+                    font-size: 12px;
+                }
+                QSpinBox::up-button, QSpinBox::down-button {
+                    border: none;
+                    background: transparent;
+                    width: 12px;
+                }
+                QSpinBox::up-button:hover, QSpinBox::down-button:hover {
+                    background: rgba(0, 0, 0, 0.1);
+                }
+            """)
+            
+            container_layout.addWidget(label)
+            container_layout.addWidget(spin_box)
+            coords_layout.addWidget(container)
+        
+        layout.addWidget(coords_widget)
+        
+        # Preview with enhanced styling
+        self.preview_label = QLabel()
+        self.preview_label.setMinimumSize(300, 160)
+        self.preview_label.setStyleSheet("""
+            QLabel {
+                background-color: #f5f5f7;
+                border-radius: 8px;
+                padding: 1px;
+            }
+        """)
+        self.preview_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.preview_label)
+        
+        # Process button with enhanced styling
+        self.capture_btn = QPushButton("⌘ Process")
+        self.capture_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #0071e3;
+                color: white;
+                border: none;
+                padding: 8px;
+                border-radius: 6px;
+                font-size: 13px;
+                font-weight: 500;
+                margin: 4px 0;
+            }
+            QPushButton:hover {
+                background-color: #0077ed;
+            }
+            QPushButton:pressed {
+                background-color: #006edb;
+            }
+            QPushButton:disabled {
+                background-color: #999999;
             }
         """)
         self.capture_btn.clicked.connect(self.process_capture)
         layout.addWidget(self.capture_btn)
         
-        # Result Area
+        # Result area with enhanced styling
         self.result_text = QTextEdit()
         self.result_text.setReadOnly(True)
-        self.result_text.setPlaceholderText("Answer will appear here...")
-        self.result_text.setMinimumHeight(100)
-        layout.addWidget(self.result_text)
-        
-        # Status Label
-        self.status_label = QLabel("Ready to process")
-        self.status_label.setStyleSheet("color: #666; margin: 5px;")
-        layout.addWidget(self.status_label)
-        
-        # Set window style
-        self.setStyleSheet("""
-            QMainWindow {
-                background-color: #f5f6fa;
-            }
-            QLabel {
-                color: #2c3e50;
-            }
-            QSpinBox {
-                padding: 5px;
-                border: 1px solid #bdc3c7;
-                border-radius: 4px;
-                min-width: 80px;
+        self.result_text.setPlaceholderText("Results will appear here")
+        self.result_text.setStyleSheet("""
+            QTextEdit {
+                background-color: #f5f5f7;
+                border: none;
+                border-radius: 8px;
+                padding: 8px;
+                font-size: 13px;
+                color: #1d1d1f;
+                selection-background-color: #0071e3;
+                selection-color: white;
             }
         """)
+        self.result_text.setMinimumHeight(80)
+        layout.addWidget(self.result_text)
+        
+        # Status label with enhanced styling
+        self.status_label = QLabel("Ready")
+        self.status_label.setStyleSheet("""
+            QLabel {
+                color: #86868b;
+                font-size: 11px;
+                margin-top: 2px;
+            }
+        """)
+        layout.addWidget(self.status_label)
+        
+        # Global styling
+        self.setStyleSheet("""
+            QMainWindow {
+                background-color: #ffffff;
+            }
+        """)
+        
+        # Set window properties for an even more compact look
+        self.setMinimumSize(360, 520)
+        self.resize(380, 540)
 
     def start_preview_timer(self):
         self.preview_timer = QTimer()
@@ -314,11 +465,15 @@ class MainWindow(QMainWindow):
     def update_preview(self):
         try:
             with mss.mss() as sct:
-                # Capture the specified area
-                monitor = {"top": self.capture_area.top(), 
-                         "left": self.capture_area.left(),
-                         "width": self.capture_area.width(),
-                         "height": self.capture_area.height()}
+                # Use only the primary monitor (index 1 in mss)
+                monitor = {
+                    "top": self.capture_area.top(),
+                    "left": self.capture_area.left(),
+                    "width": self.capture_area.width(),
+                    "height": self.capture_area.height(),
+                    "monitor": 1  # Primary monitor
+                }
+                
                 screenshot = sct.grab(monitor)
                 
                 # Convert to QPixmap and display
@@ -351,7 +506,16 @@ class MainWindow(QMainWindow):
         self.status_label.setText("Processing...")
         self.status_label.setStyleSheet("color: #FFA500;")  # Orange for processing
         
-        self.processing_thread = ProcessingThread(self.capture_area)
+        # Create capture area for primary monitor
+        adjusted_area = QRect(
+            self.capture_area.left(),
+            self.capture_area.top(),
+            self.capture_area.width(),
+            self.capture_area.height()
+        )
+        
+        self.processing_thread = ProcessingThread(adjusted_area)
+        self.processing_thread.monitor_index = 1  # Always use primary monitor
         self.processing_thread.finished.connect(self.handle_result)
         self.processing_thread.error.connect(self.handle_error)
         self.processing_thread.start()
@@ -372,6 +536,31 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'preview_timer'):
             self.preview_timer.stop()
         event.accept()
+
+    def start_area_selection(self):
+        """Start the manual area selection process."""
+        self.hide()  # Hide main window during selection
+        
+        # Create selection overlay only for primary screen
+        primary_screen = QApplication.primaryScreen()
+        self.selection_overlay = SelectionOverlay(self, primary_screen.geometry())
+        self.selection_overlay.show()
+
+    def selection_complete(self):
+        """Handle completion of manual area selection."""
+        if hasattr(self, 'selection_overlay'):
+            self.selection_overlay.close()
+            
+            selection = self.selection_overlay.get_selection()
+            if selection:
+                self.left_spin.setValue(selection.x())
+                self.top_spin.setValue(selection.y())
+                self.width_spin.setValue(selection.width())
+                self.height_spin.setValue(selection.height())
+                self.update_capture_area()
+            
+        self.show()
+        self.activateWindow()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
