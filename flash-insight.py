@@ -286,27 +286,29 @@ class MainWindow(QMainWindow):
             QLabel {
                 font-size: 18px;
                 font-weight: 500;
-                color: #1d1d1f;
+                color: #ffffff;
             }
         """)
         
         select_area_btn = QPushButton("⌘ Select Area")
         select_area_btn.setStyleSheet("""
             QPushButton {
-                background-color: #0071e3;
-                color: white;
+                background-color: #2d2d2d;
+                color: #0a84ff;
                 padding: 4px 12px;
                 border-radius: 6px;
                 font-size: 13px;
                 font-weight: 500;
-                border: none;
+                border: 1px solid #404040;
                 height: 24px;
             }
             QPushButton:hover {
-                background-color: #0077ed;
+                background-color: #353535;
+                border-color: #454545;
             }
             QPushButton:pressed {
-                background-color: #006edb;
+                background-color: #404040;
+                color: #47a2ff;
             }
         """)
         select_area_btn.clicked.connect(self.start_area_selection)
@@ -320,9 +322,10 @@ class MainWindow(QMainWindow):
         coords_widget = QWidget()
         coords_widget.setStyleSheet("""
             QWidget {
-                background-color: #f5f5f7;
+                background-color: #1c1c1e;
                 border-radius: 8px;
                 padding: 4px;
+                border: 1px solid #2c2c2e;
             }
         """)
         coords_layout = QHBoxLayout(coords_widget)
@@ -344,7 +347,7 @@ class MainWindow(QMainWindow):
             container_layout.setSpacing(2)
             
             label = QLabel(label_text)
-            label.setStyleSheet("color: #86868b; font-size: 12px; min-width: 12px;")
+            label.setStyleSheet("color: #86868b; font-size: 12px; min-width: 16px;")
             
             spin_box.setRange(min_val, max_val)
             spin_box.setValue(getattr(self.capture_area, 
@@ -353,21 +356,22 @@ class MainWindow(QMainWindow):
             spin_box.valueChanged.connect(self.update_capture_area)
             spin_box.setStyleSheet("""
                 QSpinBox {
-                    background-color: transparent;
+                    background-color: #2c2c2e;
                     border: none;
-                    padding: 0px 2px;
+                    padding: 2px 2px;
                     min-width: 50px;
                     max-width: 60px;
-                    color: #1d1d1f;
+                    color: #ffffff;
                     font-size: 12px;
                 }
                 QSpinBox::up-button, QSpinBox::down-button {
+                    width: 0;
                     border: none;
-                    background: transparent;
-                    width: 12px;
                 }
-                QSpinBox::up-button:hover, QSpinBox::down-button:hover {
-                    background: rgba(0, 0, 0, 0.1);
+                QSpinBox::up-arrow, QSpinBox::down-arrow {
+                    border: none;
+                    width: 0;
+                    height: 0;
                 }
             """)
             
@@ -382,9 +386,10 @@ class MainWindow(QMainWindow):
         self.preview_label.setMinimumSize(300, 160)
         self.preview_label.setStyleSheet("""
             QLabel {
-                background-color: #f5f5f7;
+                background-color: #1c1c1e;
                 border-radius: 8px;
                 padding: 1px;
+                border: 1px solid #2c2c2e;
             }
         """)
         self.preview_label.setAlignment(Qt.AlignCenter)
@@ -394,7 +399,7 @@ class MainWindow(QMainWindow):
         self.capture_btn = QPushButton("⌘ Process")
         self.capture_btn.setStyleSheet("""
             QPushButton {
-                background-color: #0071e3;
+                background-color: #0a84ff;
                 color: white;
                 border: none;
                 padding: 8px;
@@ -404,13 +409,14 @@ class MainWindow(QMainWindow):
                 margin: 4px 0;
             }
             QPushButton:hover {
-                background-color: #0077ed;
+                background-color: #1f8fff;
             }
             QPushButton:pressed {
-                background-color: #006edb;
+                background-color: #0070df;
             }
             QPushButton:disabled {
-                background-color: #999999;
+                background-color: #404040;
+                color: #808080;
             }
         """)
         self.capture_btn.clicked.connect(self.process_capture)
@@ -422,14 +428,17 @@ class MainWindow(QMainWindow):
         self.result_text.setPlaceholderText("Results will appear here")
         self.result_text.setStyleSheet("""
             QTextEdit {
-                background-color: #f5f5f7;
-                border: none;
+                background-color: #1c1c1e;
+                border: 1px solid #2c2c2e;
                 border-radius: 8px;
                 padding: 8px;
                 font-size: 13px;
-                color: #1d1d1f;
-                selection-background-color: #0071e3;
+                color: #ffffff;
+                selection-background-color: #0a84ff;
                 selection-color: white;
+            }
+            QTextEdit:focus {
+                border-color: #0a84ff;
             }
         """)
         self.result_text.setMinimumHeight(80)
@@ -449,7 +458,10 @@ class MainWindow(QMainWindow):
         # Global styling
         self.setStyleSheet("""
             QMainWindow {
-                background-color: #ffffff;
+                background-color: #161618;
+            }
+            QWidget {
+                color: #ffffff;
             }
         """)
         
