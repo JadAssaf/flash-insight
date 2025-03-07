@@ -313,8 +313,35 @@ class MainWindow(QMainWindow):
         """)
         select_area_btn.clicked.connect(self.start_area_selection)
         
+        # Add preview toggle button
+        self.preview_toggle_btn = QPushButton("👁")
+        self.preview_toggle_btn.setCheckable(True)
+        self.preview_toggle_btn.setChecked(True)
+        self.preview_toggle_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2d2d2d;
+                color: #0a84ff;
+                padding: 4px 8px;
+                border-radius: 6px;
+                font-size: 13px;
+                font-weight: 500;
+                border: 1px solid #404040;
+                height: 24px;
+                min-width: 24px;
+            }
+            QPushButton:checked {
+                background-color: #404040;
+                color: #86868b;
+            }
+            QPushButton:hover {
+                background-color: #353535;
+                border-color: #454545;
+            }
+        """)
+        self.preview_toggle_btn.clicked.connect(self.toggle_preview)
         header_layout.addWidget(title)
         header_layout.addStretch()
+        header_layout.addWidget(self.preview_toggle_btn)
         header_layout.addWidget(select_area_btn)
         layout.addWidget(header_widget)
         
@@ -382,6 +409,11 @@ class MainWindow(QMainWindow):
         layout.addWidget(coords_widget)
         
         # Preview with enhanced styling
+        self.preview_container = QWidget()
+        preview_container_layout = QVBoxLayout(self.preview_container)
+        preview_container_layout.setContentsMargins(0, 0, 0, 0)
+        preview_container_layout.setSpacing(0)
+        
         self.preview_label = QLabel()
         self.preview_label.setMinimumSize(300, 160)
         self.preview_label.setStyleSheet("""
@@ -393,7 +425,8 @@ class MainWindow(QMainWindow):
             }
         """)
         self.preview_label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(self.preview_label)
+        preview_container_layout.addWidget(self.preview_label)
+        layout.addWidget(self.preview_container)
         
         # Process button with enhanced styling
         self.capture_btn = QPushButton("⌘ Process")
@@ -573,6 +606,16 @@ class MainWindow(QMainWindow):
             
         self.show()
         self.activateWindow()
+
+    def toggle_preview(self):
+        """Toggle preview visibility."""
+        self.preview_container.setVisible(self.preview_toggle_btn.isChecked())
+        if not self.preview_toggle_btn.isChecked():
+            self.setMinimumSize(360, 340)  # Smaller minimum size when preview is hidden
+            self.resize(380, 360)
+        else:
+            self.setMinimumSize(360, 520)  # Original minimum size with preview
+            self.resize(380, 540)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
