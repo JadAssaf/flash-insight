@@ -236,8 +236,9 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Flash Insight")
         self.setWindowFlags(Qt.Window | Qt.WindowStaysOnTopHint)
         
-        # Initialize capture area
-        self.capture_area = QRect(0, 110, 340, 670)
+        # Initialize capture area to full screen size
+        screen = QApplication.primaryScreen().geometry()
+        self.capture_area = QRect(0, 0, screen.width(), screen.height())
         self.processing_thread = None
         
         # Get the total virtual desktop size across all monitors
@@ -339,22 +340,49 @@ class MainWindow(QMainWindow):
             }
         """)
         self.preview_toggle_btn.clicked.connect(self.toggle_preview)
+        
+        # Add coordinates toggle button
+        self.coords_toggle_btn = QPushButton("⌘")
+        self.coords_toggle_btn.setCheckable(True)
+        self.coords_toggle_btn.setChecked(False)  # Start with coordinates hidden
+        self.coords_toggle_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2d2d2d;
+                color: #0a84ff;
+                padding: 4px 8px;
+                border-radius: 6px;
+                font-size: 13px;
+                font-weight: 500;
+                border: 1px solid #404040;
+                height: 24px;
+                min-width: 24px;
+            }
+            QPushButton:checked {
+                background-color: #404040;
+                color: #86868b;
+            }
+            QPushButton:hover {
+                background-color: #353535;
+                border-color: #454545;
+            }
+        """)
+        self.coords_toggle_btn.clicked.connect(self.toggle_coordinates)
+        
         header_layout.addWidget(title)
         header_layout.addStretch()
+        header_layout.addWidget(self.coords_toggle_btn)
         header_layout.addWidget(self.preview_toggle_btn)
         header_layout.addWidget(select_area_btn)
         layout.addWidget(header_widget)
         
         # Coordinates section with compact layout
+        self.coords_container = QWidget()
+        self.coords_container.setVisible(False)  # Start hidden
+        coords_container_layout = QVBoxLayout(self.coords_container)
+        coords_container_layout.setContentsMargins(0, 0, 0, 0)
+        coords_container_layout.setSpacing(0)
+        
         coords_widget = QWidget()
-        coords_widget.setStyleSheet("""
-            QWidget {
-                background-color: #1c1c1e;
-                border-radius: 8px;
-                padding: 4px;
-                border: 1px solid #2c2c2e;
-            }
-        """)
         coords_layout = QHBoxLayout(coords_widget)
         coords_layout.setSpacing(4)
         coords_layout.setContentsMargins(8, 4, 8, 4)
@@ -406,7 +434,9 @@ class MainWindow(QMainWindow):
             container_layout.addWidget(spin_box)
             coords_layout.addWidget(container)
         
-        layout.addWidget(coords_widget)
+        coords_container_layout.addWidget(coords_widget)
+        
+        layout.addWidget(self.coords_container)
         
         # Preview with enhanced styling
         self.preview_container = QWidget()
@@ -474,7 +504,7 @@ class MainWindow(QMainWindow):
                 border-color: #0a84ff;
             }
         """)
-        self.result_text.setMinimumHeight(80)
+        self.result_text.setMinimumHeight(40)
         layout.addWidget(self.result_text)
         
         # Status label with enhanced styling
@@ -499,8 +529,8 @@ class MainWindow(QMainWindow):
         """)
         
         # Set window properties for an even more compact look
-        self.setMinimumSize(360, 520)
-        self.resize(380, 540)
+        self.setMinimumSize(360, 280)
+        self.resize(380, 300)
 
     def start_preview_timer(self):
         self.preview_timer = QTimer()
@@ -607,15 +637,28 @@ class MainWindow(QMainWindow):
         self.show()
         self.activateWindow()
 
+    def toggle_coordinates(self):
+        """Toggle coordinates visibility."""
+        self.coords_container.setVisible(self.coords_toggle_btn.isChecked())
+        self.updateWindowSize()
+        
     def toggle_preview(self):
         """Toggle preview visibility."""
         self.preview_container.setVisible(self.preview_toggle_btn.isChecked())
-        if not self.preview_toggle_btn.isChecked():
-            self.setMinimumSize(360, 340)  # Smaller minimum size when preview is hidden
-            self.resize(380, 360)
-        else:
-            self.setMinimumSize(360, 520)  # Original minimum size with preview
-            self.resize(380, 540)
+        self.updateWindowSize()
+        
+    def updateWindowSize(self):
+        """Update window size based on visible components."""
+        base_height = 280  # Base height with just title, process button, and results
+        
+        if self.coords_toggle_btn.isChecked():
+            base_height += 50  # Height of coordinates section
+            
+        if self.preview_toggle_btn.isChecked():
+            base_height += 180  # Height of preview section
+            
+        self.setMinimumSize(360, base_height)
+        self.resize(380, base_height + 20)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
