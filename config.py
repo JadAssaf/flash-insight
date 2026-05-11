@@ -43,10 +43,10 @@ GENERATION_CONFIG = {
 
 # Model configuration
 # Available models: # Check Google AI Studio for up-to-date models
-# - 'gemini-2.0-flash': Fastest, optimized for quick responses
-# - 'gemini-2.0-pro': More capable but slightly slower
-# - 'gemini-2.0-pro-exp-02-05': Experimental version with potential improvements
-MODEL_NAME = 'gemini-2.0-flash'
+# - 'gemini-2.5-flash-lite': Fastest, most cost-efficient option for quick visual answers
+# - 'gemini-2.5-flash': Stronger general-purpose visual model
+# - 'gemini-2.5-pro': More capable but slower and more expensive
+MODEL_NAME = 'gemini-2.5-flash-lite'
 
 # Example modifications for different use cases:
 """
