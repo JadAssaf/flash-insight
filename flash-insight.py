@@ -291,7 +291,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Flash Insight")
         self.setWindowFlags(Qt.Window | Qt.WindowStaysOnTopHint)
-        self.window_width = 500
+        self.window_width = 360
         
         # Initialize capture area to full screen size
         screen = QApplication.primaryScreen().geometry()
@@ -326,44 +326,74 @@ class MainWindow(QMainWindow):
         self.updateWindowSize()
         self.start_preview_timer()
 
+    def compact_primary_button_style(self, font_size=12):
+        return f"""
+            QPushButton {{
+                background-color: #0a84ff;
+                color: white;
+                padding: 0 10px;
+                border-radius: 8px;
+                font-size: {font_size}px;
+                font-weight: 700;
+                border: none;
+            }}
+            QPushButton:hover {{
+                background-color: #1f8fff;
+            }}
+            QPushButton:pressed {{
+                background-color: #0070df;
+            }}
+            QPushButton:disabled {{
+                background-color: #404040;
+                color: #808080;
+            }}
+        """
+
+    def compact_toggle_style(self):
+        return """
+            QPushButton {
+                background-color: #242428;
+                color: #8d8d93;
+                padding: 0 8px;
+                border-radius: 8px;
+                font-size: 12px;
+                font-weight: 600;
+                border: 1px solid #3a3a40;
+            }
+            QPushButton:checked {
+                background-color: rgba(10, 132, 255, 0.18);
+                color: #4ca3ff;
+                border: 1px solid rgba(10, 132, 255, 0.35);
+            }
+            QPushButton:hover {
+                background-color: #2b2b30;
+            }
+        """
+
     def init_ui(self):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-        layout = QVBoxLayout(central_widget)
-        layout.setSpacing(12)
-        layout.setContentsMargins(20, 20, 20, 18)
-        
-        # Initialize spin boxes first
+        self.main_layout = QVBoxLayout(central_widget)
+        self.main_layout.setSpacing(8)
+        self.main_layout.setContentsMargins(12, 12, 12, 10)
+
         self.left_spin = QSpinBox()
         self.top_spin = QSpinBox()
         self.width_spin = QSpinBox()
         self.height_spin = QSpinBox()
-        
+
         title = QLabel("Flash Insight")
-        title.setStyleSheet("""
-            QLabel {
-                font-size: 25px;
-                font-weight: 700;
-                color: #f7f7f8;
-            }
-        """)
+        title.setStyleSheet("font-size: 18px; font-weight: 700; color: #f7f7f8;")
+        self.model_summary_label = QLabel(self.active_model_label)
+        self.model_summary_label.setStyleSheet("color: #8d8d93; font-size: 12px; font-weight: 600;")
 
-        subtitle = QLabel("Capture a region, switch models, and get a fast answer.")
-        subtitle.setWordWrap(True)
-        subtitle.setStyleSheet("""
-            QLabel {
-                color: #8d8d93;
-                font-size: 13px;
-                line-height: 1.3;
-            }
-        """)
-
-        title_layout = QVBoxLayout()
+        title_layout = QHBoxLayout()
         title_layout.setContentsMargins(0, 0, 0, 0)
-        title_layout.setSpacing(4)
+        title_layout.setSpacing(8)
         title_layout.addWidget(title)
-        title_layout.addWidget(subtitle)
-        layout.addLayout(title_layout)
+        title_layout.addStretch()
+        title_layout.addWidget(self.model_summary_label)
+        self.main_layout.addLayout(title_layout)
 
         controls_card = QWidget()
         controls_card.setObjectName("controlsCard")
@@ -375,67 +405,30 @@ class MainWindow(QMainWindow):
             }
         """)
         controls_layout = QVBoxLayout(controls_card)
-        controls_layout.setContentsMargins(16, 14, 16, 16)
-        controls_layout.setSpacing(10)
+        controls_layout.setContentsMargins(10, 10, 10, 10)
+        controls_layout.setSpacing(8)
 
-        controls_header = QLabel("Controls")
-        controls_header.setStyleSheet("""
-            QLabel {
-                color: #8d8d93;
-                font-size: 11px;
-                font-weight: 600;
-            }
-        """)
-        controls_layout.addWidget(controls_header)
-
-        controls_grid = QGridLayout()
-        controls_grid.setContentsMargins(0, 0, 0, 0)
-        controls_grid.setHorizontalSpacing(12)
-        controls_grid.setVerticalSpacing(8)
-        controls_grid.setColumnStretch(0, 1)
-        controls_grid.setColumnStretch(1, 0)
-
-        model_label = QLabel("Model")
-        model_label.setStyleSheet("color: #8d8d93; font-size: 12px;")
-        controls_grid.addWidget(model_label, 0, 0)
-
-        select_area_btn = QPushButton("Select Area")
-        select_area_btn.setFixedSize(148, 42)
-        select_area_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #0a84ff;
-                color: white;
-                padding: 0 16px;
-                border-radius: 8px;
-                font-size: 13px;
-                font-weight: 600;
-                border: none;
-            }
-            QPushButton:hover {
-                background-color: #2490ff;
-            }
-            QPushButton:pressed {
-                background-color: #0070df;
-            }
-        """)
-        select_area_btn.clicked.connect(self.start_area_selection)
+        controls_row = QHBoxLayout()
+        controls_row.setContentsMargins(0, 0, 0, 0)
+        controls_row.setSpacing(6)
 
         self.model_combo = QComboBox()
         self.model_combo.addItems(list(MODEL_OPTIONS.keys()))
         self.model_combo.setCurrentText(self.active_model_label)
-        self.model_combo.setFixedHeight(42)
+        self.model_combo.setFixedHeight(32)
         self.model_combo.setStyleSheet("""
             QComboBox {
                 background-color: #242428;
                 color: #ffffff;
                 border: 1px solid #3a3a40;
                 border-radius: 8px;
-                padding: 0 12px;
-                font-size: 14px;
+                padding: 0 8px;
+                font-size: 12px;
+                font-weight: 600;
             }
             QComboBox::drop-down {
                 border: none;
-                width: 24px;
+                width: 18px;
             }
             QComboBox QAbstractItemView {
                 background-color: #1c1c1e;
@@ -451,74 +444,44 @@ class MainWindow(QMainWindow):
             "Gemma is omitted because it is not supported by this app path"
         )
         self.model_combo.currentTextChanged.connect(self.on_model_changed)
-        controls_grid.addWidget(self.model_combo, 1, 0)
-        
-        action_label = QLabel("Capture")
-        action_label.setStyleSheet("color: #8d8d93; font-size: 12px;")
-        controls_grid.addWidget(action_label, 0, 1)
-        controls_grid.addWidget(select_area_btn, 1, 1)
-        
-        self.preview_toggle_btn = QPushButton("Preview")
+        controls_row.addWidget(self.model_combo, 1)
+
+        select_area_btn = QPushButton("Area")
+        select_area_btn.setFixedSize(68, 32)
+        select_area_btn.setStyleSheet(self.compact_primary_button_style(font_size=12))
+        select_area_btn.clicked.connect(self.start_area_selection)
+        controls_row.addWidget(select_area_btn)
+
+        self.capture_btn = QPushButton("Run")
+        self.capture_btn.setFixedSize(58, 32)
+        self.capture_btn.setStyleSheet(self.compact_primary_button_style(font_size=12))
+        self.capture_btn.clicked.connect(self.process_capture)
+        controls_row.addWidget(self.capture_btn)
+        controls_layout.addLayout(controls_row)
+
+        toggles_row = QHBoxLayout()
+        toggles_row.setContentsMargins(0, 0, 0, 0)
+        toggles_row.setSpacing(6)
+
+        self.preview_toggle_btn = QPushButton("Prev")
         self.preview_toggle_btn.setCheckable(True)
         self.preview_toggle_btn.setChecked(True)
-        self.preview_toggle_btn.setFixedSize(104, 36)
-        self.preview_toggle_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #242428;
-                color: #8d8d93;
-                padding: 0 12px;
-                border-radius: 8px;
-                font-size: 13px;
-                font-weight: 600;
-                border: 1px solid #3a3a40;
-            }
-            QPushButton:checked {
-                background-color: rgba(10, 132, 255, 0.18);
-                color: #4ca3ff;
-                border: 1px solid rgba(10, 132, 255, 0.35);
-            }
-            QPushButton:hover {
-                background-color: #2b2b30;
-            }
-        """)
+        self.preview_toggle_btn.setFixedSize(58, 28)
+        self.preview_toggle_btn.setStyleSheet(self.compact_toggle_style())
         self.preview_toggle_btn.clicked.connect(self.toggle_preview)
-        
+        toggles_row.addWidget(self.preview_toggle_btn)
+
         self.coords_toggle_btn = QPushButton("Bounds")
         self.coords_toggle_btn.setCheckable(True)
         self.coords_toggle_btn.setChecked(False)
-        self.coords_toggle_btn.setFixedSize(104, 36)
-        self.coords_toggle_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #242428;
-                color: #8d8d93;
-                padding: 0 12px;
-                border-radius: 8px;
-                font-size: 13px;
-                font-weight: 600;
-                border: 1px solid #3a3a40;
-            }
-            QPushButton:checked {
-                background-color: rgba(10, 132, 255, 0.18);
-                color: #4ca3ff;
-                border: 1px solid rgba(10, 132, 255, 0.35);
-            }
-            QPushButton:hover {
-                background-color: #2b2b30;
-            }
-        """)
+        self.coords_toggle_btn.setFixedSize(70, 28)
+        self.coords_toggle_btn.setStyleSheet(self.compact_toggle_style())
         self.coords_toggle_btn.clicked.connect(self.toggle_coordinates)
-
-        toggles_row = QHBoxLayout()
-        toggles_row.setContentsMargins(0, 2, 0, 0)
-        toggles_row.setSpacing(10)
-        toggles_row.addWidget(self.preview_toggle_btn)
         toggles_row.addWidget(self.coords_toggle_btn)
         toggles_row.addStretch()
-        controls_layout.addLayout(controls_grid)
         controls_layout.addLayout(toggles_row)
-        layout.addWidget(controls_card)
-        
-        # Coordinates section with compact layout
+        self.main_layout.addWidget(controls_card)
+
         self.coords_container = QWidget()
         self.coords_container.setObjectName("coordsCard")
         self.coords_container.setVisible(False)
@@ -530,50 +493,45 @@ class MainWindow(QMainWindow):
             }
         """)
         coords_container_layout = QVBoxLayout(self.coords_container)
-        coords_container_layout.setContentsMargins(16, 14, 16, 16)
-        coords_container_layout.setSpacing(8)
+        coords_container_layout.setContentsMargins(10, 10, 10, 10)
+        coords_container_layout.setSpacing(6)
 
-        coords_header = QLabel("Capture Bounds")
-        coords_header.setStyleSheet("color: #8d8d93; font-size: 12px; font-weight: 600;")
-        coords_container_layout.addWidget(coords_header)
-        
         coords_widget = QWidget()
         coords_layout = QHBoxLayout(coords_widget)
-        coords_layout.setSpacing(8)
+        coords_layout.setSpacing(4)
         coords_layout.setContentsMargins(0, 0, 0, 0)
-        
-        # Create coordinate pairs with labels
+
         coord_pairs = [
             ("X", self.left_spin, -self.max_x, self.max_x),
             ("Y", self.top_spin, -self.max_y, self.max_y),
             ("W", self.width_spin, 50, self.max_width),
             ("H", self.height_spin, 50, self.max_height)
         ]
-        
+
         for label_text, spin_box, min_val, max_val in coord_pairs:
             container = QWidget()
             container_layout = QHBoxLayout(container)
             container_layout.setContentsMargins(0, 0, 0, 0)
             container_layout.setSpacing(2)
-            
+
             label = QLabel(label_text)
-            label.setStyleSheet("color: #86868b; font-size: 12px; min-width: 16px;")
-            
+            label.setStyleSheet("color: #86868b; font-size: 11px; min-width: 10px;")
+
             spin_box.setRange(min_val, max_val)
-            spin_box.setValue(getattr(self.capture_area, 
-                                   {"X": "left", "Y": "top", 
+            spin_box.setValue(getattr(self.capture_area,
+                                   {"X": "left", "Y": "top",
                                     "W": "width", "H": "height"}[label_text])())
             spin_box.valueChanged.connect(self.update_capture_area)
             spin_box.setStyleSheet("""
                 QSpinBox {
                     background-color: #242428;
                     border: 1px solid #3a3a40;
-                    border-radius: 8px;
-                    padding: 4px 8px;
-                    min-width: 64px;
-                    max-width: 72px;
+                    border-radius: 7px;
+                    padding: 2px 4px;
+                    min-width: 48px;
+                    max-width: 54px;
                     color: #ffffff;
-                    font-size: 12px;
+                    font-size: 11px;
                 }
                 QSpinBox::up-button, QSpinBox::down-button {
                     width: 0;
@@ -585,15 +543,14 @@ class MainWindow(QMainWindow):
                     height: 0;
                 }
             """)
-            
+
             container_layout.addWidget(label)
             container_layout.addWidget(spin_box)
             coords_layout.addWidget(container)
-        
+
         coords_container_layout.addWidget(coords_widget)
-        
-        layout.addWidget(self.coords_container)
-        
+        self.main_layout.addWidget(self.coords_container)
+
         self.preview_container = QWidget()
         self.preview_container.setObjectName("previewCard")
         self.preview_container.setStyleSheet("""
@@ -604,21 +561,11 @@ class MainWindow(QMainWindow):
             }
         """)
         preview_container_layout = QVBoxLayout(self.preview_container)
-        preview_container_layout.setContentsMargins(16, 14, 16, 16)
-        preview_container_layout.setSpacing(10)
+        preview_container_layout.setContentsMargins(10, 10, 10, 10)
+        preview_container_layout.setSpacing(0)
 
-        preview_header = QLabel("Live Preview")
-        preview_header.setStyleSheet("""
-            QLabel {
-                color: #f7f7f8;
-                font-size: 14px;
-                font-weight: 600;
-            }
-        """)
-        preview_container_layout.addWidget(preview_header)
-        
         self.preview_label = QLabel()
-        self.preview_label.setFixedSize(448, 160)
+        self.preview_label.setFixedSize(316, 96)
         self.preview_label.setStyleSheet("""
             QLabel {
                 background-color: #111214;
@@ -626,40 +573,14 @@ class MainWindow(QMainWindow):
                 padding: 0;
                 border: 1px solid #2f3136;
                 color: #6e6e73;
-                font-size: 13px;
+                font-size: 12px;
             }
         """)
         self.preview_label.setAlignment(Qt.AlignCenter)
-        self.preview_label.setText("Preview updates every second")
+        self.preview_label.setText("Preview")
         preview_container_layout.addWidget(self.preview_label, 0, Qt.AlignCenter)
-        layout.addWidget(self.preview_container)
-        
-        self.capture_btn = QPushButton("Process Capture")
-        self.capture_btn.setFixedHeight(48)
-        self.capture_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #0a84ff;
-                color: white;
-                border: none;
-                padding: 0 18px;
-                border-radius: 8px;
-                font-size: 15px;
-                font-weight: 700;
-            }
-            QPushButton:hover {
-                background-color: #1f8fff;
-            }
-            QPushButton:pressed {
-                background-color: #0070df;
-            }
-            QPushButton:disabled {
-                background-color: #404040;
-                color: #808080;
-            }
-        """)
-        self.capture_btn.clicked.connect(self.process_capture)
-        layout.addWidget(self.capture_btn)
-        
+        self.main_layout.addWidget(self.preview_container)
+
         results_card = QWidget()
         results_card.setObjectName("resultsCard")
         results_card.setStyleSheet("""
@@ -670,37 +591,31 @@ class MainWindow(QMainWindow):
             }
         """)
         results_layout = QVBoxLayout(results_card)
-        results_layout.setContentsMargins(16, 14, 16, 16)
-        results_layout.setSpacing(10)
+        results_layout.setContentsMargins(10, 10, 10, 10)
+        results_layout.setSpacing(6)
 
         results_header = QLabel("Result")
-        results_header.setStyleSheet("""
-            QLabel {
-                color: #f7f7f8;
-                font-size: 14px;
-                font-weight: 600;
-            }
-        """)
+        results_header.setStyleSheet("color: #f7f7f8; font-size: 12px; font-weight: 600;")
         results_layout.addWidget(results_header)
 
         self.result_text = QTextEdit()
         self.result_text.setReadOnly(True)
         self.result_text.setFocusPolicy(Qt.NoFocus)
-        self.result_text.setPlaceholderText("Your answer will appear here.")
+        self.result_text.setPlaceholderText("Answer appears here.")
         self.result_text.setStyleSheet("""
             QTextEdit {
                 background-color: #111214;
                 border: 1px solid #2f3136;
                 border-radius: 8px;
-                padding: 12px;
-                font-size: 15px;
+                padding: 8px;
+                font-size: 13px;
                 font-weight: 600;
                 color: #ffffff;
                 selection-background-color: #0a84ff;
                 selection-color: white;
             }
             QTextEdit:focus {
-                border-color: #0a84ff;
+                border-color: #2f3136;
             }
             QScrollBar:vertical {
                 border: none;
@@ -713,34 +628,22 @@ class MainWindow(QMainWindow):
                 min-height: 20px;
                 border-radius: 4px;
             }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-                border: none;
-                background: none;
-            }
-            QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {
-                border: none;
-                background: none;
-            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical,
+            QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical,
             QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+                border: none;
                 background: none;
             }
         """)
-        self.result_text.setFixedHeight(88)
+        self.result_text.setFixedHeight(56)
         self.result_text.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         results_layout.addWidget(self.result_text)
-        layout.addWidget(results_card)
-        
+        self.main_layout.addWidget(results_card)
+
         self.status_label = QLabel("Ready")
-        self.status_label.setStyleSheet("""
-            QLabel {
-                color: #86868b;
-                font-size: 12px;
-                padding-left: 2px;
-            }
-        """)
-        layout.addWidget(self.status_label)
-        
-        # Global styling
+        self.status_label.setStyleSheet("color: #86868b; font-size: 11px; padding-left: 2px;")
+        self.main_layout.addWidget(self.status_label)
+
         self.setStyleSheet("""
             QMainWindow {
                 background-color: #161618;
@@ -829,6 +732,7 @@ class MainWindow(QMainWindow):
     def on_model_changed(self, model_label):
         self.active_model_label = model_label
         self.active_model_name = MODEL_OPTIONS[model_label]
+        self.model_summary_label.setText(model_label)
         note = MODEL_NOTES.get(model_label, self.active_model_name)
         daily_limit = MODEL_DAILY_LIMITS.get(model_label, "limit varies")
         self.status_label.setText(f"{model_label} ({daily_limit}): {note}")
@@ -888,15 +792,9 @@ class MainWindow(QMainWindow):
         
     def updateWindowSize(self):
         """Update window size based on visible components."""
-        base_height = 452
-        
-        if self.coords_toggle_btn.isChecked():
-            base_height += 92
-            
-        if self.preview_toggle_btn.isChecked():
-            base_height += 222
-            
-        self.setFixedSize(self.window_width, base_height)
+        self.layout().activate()
+        content_height = self.centralWidget().sizeHint().height()
+        self.setFixedSize(self.window_width, content_height)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
