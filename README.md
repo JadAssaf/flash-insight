@@ -1,4 +1,4 @@
-# Flash Insight 📸
+# Flash Insight
 
 Real-time visual AI processing at your fingertips. Flash Insight instantly analyzes screen content using Google's Gemini Vision AI, providing immediate, accurate insights from any visual information.
 
@@ -11,12 +11,12 @@ Flash Insight combines advanced computer vision with real-time screen capture to
 
 ## Features
 
-- 📸 Real-time preview of capture area
-- 🎯 Adjustable capture region
-- 🤖 AI-powered content analysis using Google's Gemini
-- 🖥️ Clean, modern interface
-- ⚡ Fast and responsive processing
-- 🔝 Always-on-top window for easy access
+- Real-time preview of the selected capture area
+- Adjustable screen region with manual bounds controls
+- In-app Gemini model selector ranked by available daily quota
+- AI-powered visual analysis for screenshots and quiz-style prompts
+- Always-on-top PyQt5 interface for quick capture workflows
+- Request logging for debugging model usage and quota behavior
 
 ## 🚀 Getting Started
 
@@ -50,7 +50,9 @@ Launch the application:
 python flash-insight.py
 ```
 
-The interface provides precise controls for capture area adjustment and real-time preview of the analyzed region.
+The app opens as an always-on-top utility window. Use **Select Area** to choose the region to analyze, pick a model from the dropdown, then click **Process Capture**.
+
+Each API request is logged to `flash-insight-requests.log` with the model name, capture size, and request outcome. This is useful when diagnosing quota or rate-limit errors.
 
 ## Configuration
 
@@ -58,15 +60,22 @@ Configure the model and generation parameters in `config.py`
 
 ### Model Selection
 ```python
-MODEL_NAME = 'gemini-2.0-flash'  # Default: Fast responses
+DEFAULT_MODEL_LABEL = "3.1 Lite"
+MODEL_NAME = MODEL_OPTIONS[DEFAULT_MODEL_LABEL]
 ```
-Available models:
-- `gemini-2.0-flash`: Standard fast model for quick responses
-- `gemini-2.0-flash-lite`: Lighter version of Flash, potentially faster but may be less capable
-- `gemini-2.0-pro-exp-02-05`: Experimental Pro version with potential improvements
-- `gemini-2.0-flash-thinking-exp-01-21`: Experimental Flash model with enhanced thinking capabilities
 
-Check [Google AI Studio](https://aistudio.google.com) for the most up-to-date model options, as available models may change over time.
+The in-app dropdown is configured for models that work with this app's direct screenshot-to-`generateContent` flow:
+
+| Label | Model code | Notes |
+| --- | --- | --- |
+| `3.1 Lite` | `gemini-3.1-flash-lite-preview` | Highest daily quota currently available in the tested AI Studio project |
+| `2.5 Lite` | `gemini-2.5-flash-lite` | Stable Gemini fallback |
+| `2.5 Flash` | `gemini-2.5-flash` | Stronger Gemini fallback with lower daily quota |
+| `3 Flash` | `gemini-3-flash-preview` | Newer Flash fallback with lower daily quota |
+
+Google AI Studio quotas vary by project and can change over time. Use the AI Studio rate-limit page to confirm the active RPM, TPM, and RPD limits for your key's project.
+
+Gemma models are intentionally not included in the app menu right now. Although they may appear with high quota in AI Studio, they returned unsupported/not-found errors with this app's current Python SDK and request path.
 
 ### Generation Settings
 The behavior of the AI can be customized through these settings in `GENERATION_CONFIG`:
@@ -135,6 +144,18 @@ The system prompt in `config.py` can be modified to alter the AI's interpretatio
 - Analysis parameters
 - Question type handling
 - Context specifications
+
+## Troubleshooting
+
+### Quota and rate limits
+
+If you see a `429` error, check `flash-insight-requests.log` to confirm how many requests the app sent. The app sends one Gemini request per **Process Capture** click and includes a short duplicate-click cooldown.
+
+Rate limits are applied per Google Cloud project, not just per API key. Creating a new key in the same project does not reset the daily quota.
+
+### Unsupported models
+
+If a model returns `404 models/... is not found` or says it is unsupported for `generateContent`, remove it from `MODEL_OPTIONS` or choose another model in the app. Not every model shown in AI Studio quota tables works with this app's current SDK/request format.
 
 
 ## License

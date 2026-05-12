@@ -42,11 +42,27 @@ GENERATION_CONFIG = {
 }
 
 # Model configuration
-# Available models: # Check Google AI Studio for up-to-date models
-# - 'gemini-2.5-flash-lite': Fastest, most cost-efficient option for quick visual answers
-# - 'gemini-2.5-flash': Stronger general-purpose visual model
-# - 'gemini-2.5-pro': More capable but slower and more expensive
-MODEL_NAME = 'gemini-2.5-flash-lite'
+# Availability and limits vary by project. Keep labels short so they fit the app.
+MODEL_OPTIONS = {
+    "3.1 Lite": "gemini-3.1-flash-lite-preview",
+    "2.5 Lite": "gemini-2.5-flash-lite",
+    "2.5 Flash": "gemini-2.5-flash",
+    "3 Flash": "gemini-3-flash-preview",
+}
+MODEL_NOTES = {
+    "3.1 Lite": "best daily cap currently available on this project",
+    "2.5 Lite": "stable Gemini fallback, but your project is capped at 20/day",
+    "2.5 Flash": "stronger Gemini fallback, also capped at 20/day here",
+    "3 Flash": "newer Flash fallback, also capped at 20/day here",
+}
+MODEL_DAILY_LIMITS = {
+    "3.1 Lite": "500 RPD",
+    "2.5 Lite": "20 RPD",
+    "2.5 Flash": "20 RPD",
+    "3 Flash": "20 RPD",
+}
+DEFAULT_MODEL_LABEL = "3.1 Lite"
+MODEL_NAME = MODEL_OPTIONS[DEFAULT_MODEL_LABEL]
 
 # Example modifications for different use cases:
 """
